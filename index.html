@@ -4,22 +4,79 @@
 <meta charset="UTF-8">
 <title>Калькулятор долгов</title>
 <style>
-  body { font-family: Arial, sans-serif; margin: 20px; }
-  input, button { margin: 5px 0; }
-  .transactions { margin-top: 20px; }
-  table { border-collapse: collapse; width: 100%; }
-  td, th { border: 1px solid #ccc; padding: 5px; }
+  body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    background-color: #f9f9f9;
+    color: #333;
+  }
+  main {
+    max-width: 800px;
+    margin: auto;
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  h1 {
+    text-align: center;
+    color: #2c3e50;
+    margin-bottom: 20px;
+  }
+  h2 {
+    margin-top: 30px;
+    color: #34495e;
+  }
+  input,
+  select,
+  button {
+    margin: 5px 0;
+    padding: 6px;
+    font-size: 1rem;
+  }
+  button {
+    cursor: pointer;
+    background-color: #4caf50;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+  }
+  button:hover {
+    background-color: #45a049;
+  }
+  .transactions {
+    margin-top: 20px;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-top: 10px;
+  }
+  thead {
+    background-color: #f2f2f2;
+  }
+  td,
+  th {
+    border: 1px solid #ccc;
+    padding: 8px;
+    text-align: left;
+  }
+  tr:nth-child(even) {
+    background-color: #f9f9f9;
+  }
   .import-label {
     display: inline-block;
-    padding: 4px 8px;
+    padding: 6px 12px;
     margin-left: 10px;
     background: #eee;
     border: 1px solid #ccc;
+    border-radius: 4px;
     cursor: pointer;
   }
 </style>
 </head>
 <body>
+<main>
 <h1>Калькулятор долгов</h1>
 <div class="participants">
   <h2>Участники</h2>
@@ -55,6 +112,7 @@
   <h2>Расчёт долгов</h2>
   <pre id="debts"></pre>
 </div>
+</main>
 <script>
 const TX_KEY = 'transactions';
 const PART_KEY = 'participants';
