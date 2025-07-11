@@ -2,31 +2,46 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Калькулятор долгов</title>
 <style>
-  body {
-    font-family: Arial, sans-serif;
-    margin: 20px;
-    background-color: #f9f9f9;
-    color: #333;
+  :root {
+    --accent: #4caf50;
+    --danger: #f44336;
+    --bg: #f9f9f9;
+    --text: #333;
   }
+
+  body {
+    margin: 0;
+    padding: 1rem;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+
   main {
     max-width: 800px;
     margin: auto;
     background: #fff;
-    padding: 20px;
+    padding: 1.5rem;
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    animation: fadeIn 0.5s ease;
   }
+
   h1 {
     text-align: center;
     color: #2c3e50;
-    margin-bottom: 20px;
+    margin-bottom: 1.2rem;
   }
+
   h2 {
-    margin-top: 30px;
+    margin-top: 2rem;
     color: #34495e;
   }
+
   input,
   select,
   button {
@@ -34,47 +49,76 @@
     padding: 6px;
     font-size: 1rem;
   }
+
   button {
     cursor: pointer;
-    background-color: #4caf50;
+    background-color: var(--accent);
     color: #fff;
     border: none;
     border-radius: 4px;
+    transition: background-color 0.3s, transform 0.2s;
   }
+
   button:hover {
     background-color: #45a049;
   }
+
+  button:active {
+    transform: scale(0.97);
+  }
+
   #participantList li {
     display: flex;
     align-items: center;
     gap: 10px;
+    transition: background-color 0.3s;
   }
+
+  #participantList li:hover {
+    background-color: #f1f1f1;
+  }
+
   .del-part {
-    background-color: #f44336;
+    background-color: var(--danger);
   }
+
   .del-part:hover {
     background-color: #d32f2f;
   }
+
   .transactions {
     margin-top: 20px;
   }
+
   table {
     border-collapse: collapse;
     width: 100%;
     margin-top: 10px;
   }
+
   thead {
     background-color: #f2f2f2;
   }
+
   td,
   th {
     border: 1px solid #ccc;
     padding: 8px;
     text-align: left;
   }
+
+  tr {
+    transition: background-color 0.3s;
+  }
+
+  tr:hover {
+    background-color: #f1f1f1;
+  }
+
   tr:nth-child(even) {
     background-color: #f9f9f9;
   }
+
   .import-label {
     display: inline-block;
     padding: 6px 12px;
@@ -83,6 +127,36 @@
     border: 1px solid #ccc;
     border-radius: 4px;
     cursor: pointer;
+  }
+
+  .fade-in {
+    animation: fadeIn 0.3s ease;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-5px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (max-width: 600px) {
+    main {
+      padding: 1rem;
+    }
+    select[multiple] {
+      height: auto;
+    }
+    table,
+    input,
+    select,
+    button {
+      font-size: 0.9rem;
+    }
   }
 </style>
 </head>
@@ -194,6 +268,7 @@ function renderParticipants() {
     btn.dataset.name = name;
     li.appendChild(btn);
     listEl.appendChild(li);
+    requestAnimationFrame(() => li.classList.add('fade-in'));
     const o1 = document.createElement('option');
     o1.value = name;
     o1.textContent = name;
@@ -211,6 +286,7 @@ function renderTransactions() {
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${tx.payer}</td><td>${tx.amount.toFixed(2)}</td><td>${tx.participants.join(', ')}</td><td><button data-idx="${idx}">X</button></td>`;
     tbody.appendChild(tr);
+    requestAnimationFrame(() => tr.classList.add('fade-in'));
   });
 }
 
