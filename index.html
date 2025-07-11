@@ -44,6 +44,17 @@
   button:hover {
     background-color: #45a049;
   }
+  #participantList li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .del-part {
+    background-color: #f44336;
+  }
+  .del-part:hover {
+    background-color: #d32f2f;
+  }
   .transactions {
     margin-top: 20px;
   }
@@ -107,6 +118,7 @@
     Импорт CSV
     <input id="importCsv" type="file" accept=".csv" style="display:none">
   </label>
+  <button id="resetAll">Сбросить данные</button>
 </div>
 <div id="result">
   <h2>Расчёт долгов</h2>
@@ -139,6 +151,30 @@ function saveParticipants(list) {
   localStorage.setItem(PART_KEY, JSON.stringify(list));
 }
 
+function removeParticipant(name) {
+  const txs = loadTransactions();
+  const used = txs.some(
+    tx => tx.payer === name || tx.participants.includes(name)
+  );
+  if (used) {
+    alert('Нельзя удалить участника с транзакциями');
+    return;
+  }
+  let list = loadParticipants();
+  list = list.filter(n => n !== name);
+  saveParticipants(list);
+  renderParticipants();
+}
+
+function resetAll() {
+  if (!confirm('Удалить все данные?')) return;
+  localStorage.removeItem(TX_KEY);
+  localStorage.removeItem(PART_KEY);
+  renderParticipants();
+  renderTransactions();
+  calculateDebts();
+}
+
 function renderParticipants() {
   const names = loadParticipants();
   const listEl = document.getElementById('participantList');
@@ -149,7 +185,14 @@ function renderParticipants() {
   partSel.innerHTML = '';
   names.forEach(name => {
     const li = document.createElement('li');
-    li.textContent = name;
+    const span = document.createElement('span');
+    span.textContent = name;
+    li.appendChild(span);
+    const btn = document.createElement('button');
+    btn.textContent = 'X';
+    btn.className = 'del-part';
+    btn.dataset.name = name;
+    li.appendChild(btn);
     listEl.appendChild(li);
     const o1 = document.createElement('option');
     o1.value = name;
@@ -323,12 +366,20 @@ document.querySelector('#txTable tbody').addEventListener('click', e => {
   }
 });
 
+document.getElementById('participantList').addEventListener('click', e => {
+  if (e.target.classList.contains('del-part')) {
+    const name = e.target.dataset.name;
+    if (name) removeParticipant(name);
+  }
+});
+
 document.getElementById('exportCsv').addEventListener('click', exportCsv);
 document.getElementById('importCsv').addEventListener('change', e => {
   const file = e.target.files[0];
   if (file) importCsv(file);
   e.target.value = '';
 });
+document.getElementById('resetAll').addEventListener('click', resetAll);
 document
   .getElementById('optimizeToggle')
   .addEventListener('change', calculateDebts);
