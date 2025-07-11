@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Калькулятор долгов</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; }
+  input, button { margin: 5px 0; }
+  .transactions { margin-top: 20px; }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { border: 1px solid #ccc; padding: 5px; }
+</style>
+</head>
+<body>
+<h1>Калькулятор долгов</h1>
+<form id="addForm">
+  <label>Кто платил: <input id="payer" required></label><br>
+  <label>Сумма: <input id="amount" type="number" step="0.01" required></label><br>
+  <label>Участники (через запятую): <input id="participants" required></label><br>
+  <button type="submit">Добавить</button>
+</form>
+<div class="transactions">
+  <h2>Транзакции</h2>
+  <table id="txTable">
+    <thead><tr><th>Платил</th><th>Сумма</th><th>Участники</th><th></th></tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+<div id="result">
+  <h2>Расчёт долгов</h2>
+  <pre id="debts"></pre>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
