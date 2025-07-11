@@ -110,6 +110,10 @@
 </div>
 <div id="result">
   <h2>Расчёт долгов</h2>
+  <label>
+    <input type="checkbox" id="optimizeToggle" checked>
+    Оптимизировать долги
+  </label>
   <pre id="debts"></pre>
 </div>
 </main>
@@ -167,7 +171,7 @@ function renderTransactions() {
   });
 }
 
-function calculateDebts() {
+function calculateOptimizedDebts() {
   const txs = loadTransactions();
   const balances = {};
   txs.forEach(tx => {
@@ -197,6 +201,33 @@ function calculateDebts() {
     if (c.amount < 0.01) j++;
   }
   document.getElementById('debts').textContent = settlements.join('\n');
+}
+
+function calculateDirectDebts() {
+  const txs = loadTransactions();
+  const pairs = {};
+  txs.forEach(tx => {
+    const share = tx.amount / tx.participants.length;
+    tx.participants.forEach(p => {
+      if (p === tx.payer) return;
+      const key = `${p}->${tx.payer}`;
+      pairs[key] = (pairs[key] || 0) + share;
+    });
+  });
+  const lines = Object.keys(pairs).map(k => {
+    const [debtor, creditor] = k.split('->');
+    return `${debtor} должен(а) ${creditor} ${pairs[k].toFixed(2)}`;
+  });
+  document.getElementById('debts').textContent = lines.join('\n');
+}
+
+function calculateDebts() {
+  const optimized = document.getElementById('optimizeToggle').checked;
+  if (optimized) {
+    calculateOptimizedDebts();
+  } else {
+    calculateDirectDebts();
+  }
 }
 
 function exportCsv() {
@@ -298,6 +329,9 @@ document.getElementById('importCsv').addEventListener('change', e => {
   if (file) importCsv(file);
   e.target.value = '';
 });
+document
+  .getElementById('optimizeToggle')
+  .addEventListener('change', calculateDebts);
 
 window.addEventListener('load', () => {
   renderParticipants();
