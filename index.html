@@ -13,10 +13,22 @@
 </head>
 <body>
 <h1>Калькулятор долгов</h1>
+<div class="participants">
+  <h2>Участники</h2>
+  <form id="participantForm">
+    <label>Имя: <input id="participantName" required></label>
+    <button type="submit">Добавить</button>
+  </form>
+  <ul id="participantList"></ul>
+</div>
 <form id="addForm">
-  <label>Кто платил: <input id="payer" required></label><br>
+  <label>Кто платил:
+    <select id="payerSelect" required></select>
+  </label><br>
   <label>Сумма: <input id="amount" type="number" step="0.01" required></label><br>
-  <label>Участники (через запятую): <input id="participants" required></label><br>
+  <label>Участники:
+    <select id="participantsSelect" multiple size="5" required></select>
+  </label><br>
   <button type="submit">Добавить</button>
 </form>
 <div class="transactions">
@@ -31,15 +43,46 @@
   <pre id="debts"></pre>
 </div>
 <script>
-const STORAGE_KEY = 'transactions';
+const TX_KEY = 'transactions';
+const PART_KEY = 'participants';
 
 function loadTransactions() {
-  const data = localStorage.getItem(STORAGE_KEY);
+  const data = localStorage.getItem(TX_KEY);
   return data ? JSON.parse(data) : [];
 }
 
 function saveTransactions(txs) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(txs));
+  localStorage.setItem(TX_KEY, JSON.stringify(txs));
+}
+
+function loadParticipants() {
+  const data = localStorage.getItem(PART_KEY);
+  return data ? JSON.parse(data) : [];
+}
+
+function saveParticipants(list) {
+  localStorage.setItem(PART_KEY, JSON.stringify(list));
+}
+
+function renderParticipants() {
+  const names = loadParticipants();
+  const listEl = document.getElementById('participantList');
+  const payerSel = document.getElementById('payerSelect');
+  const partSel = document.getElementById('participantsSelect');
+  listEl.innerHTML = '';
+  payerSel.innerHTML = '';
+  partSel.innerHTML = '';
+  names.forEach(name => {
+    const li = document.createElement('li');
+    li.textContent = name;
+    listEl.appendChild(li);
+    const o1 = document.createElement('option');
+    o1.value = name;
+    o1.textContent = name;
+    payerSel.appendChild(o1);
+    const o2 = o1.cloneNode(true);
+    partSel.appendChild(o2);
+  });
 }
 
 function renderTransactions() {
@@ -87,13 +130,15 @@ function calculateDebts() {
 
 document.getElementById('addForm').addEventListener('submit', e => {
   e.preventDefault();
-  const payer = document.getElementById('payer').value.trim();
+  const payer = document.getElementById('payerSelect').value;
   const amount = parseFloat(document.getElementById('amount').value);
-  const participants = document
-    .getElementById('participants')
-    .value.split(',')
-    .map(s => s.trim())
-    .filter(Boolean);
+  const participants = Array.from(
+    document.getElementById('participantsSelect').selectedOptions
+  ).map(o => o.value);
+  if (!payer || participants.length === 0 || isNaN(amount) || amount <= 0) {
+    alert('Заполните все поля');
+    return;
+  }
   const txs = loadTransactions();
   txs.push({ payer, amount, participants });
   saveTransactions(txs);
@@ -101,6 +146,23 @@ document.getElementById('addForm').addEventListener('submit', e => {
   renderTransactions();
   calculateDebts();
 });
+
+document
+  .getElementById('participantForm')
+  .addEventListener('submit', e => {
+    e.preventDefault();
+    const name = document.getElementById('participantName').value.trim();
+    if (!name) return;
+    const list = loadParticipants();
+    if (list.includes(name)) {
+      alert('Такой участник уже есть');
+      return;
+    }
+    list.push(name);
+    saveParticipants(list);
+    e.target.reset();
+    renderParticipants();
+  });
 
 document.querySelector('#txTable tbody').addEventListener('click', e => {
   if (e.target.tagName === 'BUTTON') {
@@ -114,6 +176,7 @@ document.querySelector('#txTable tbody').addEventListener('click', e => {
 });
 
 window.addEventListener('load', () => {
+  renderParticipants();
   renderTransactions();
   calculateDebts();
 });
