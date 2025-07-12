@@ -137,7 +137,15 @@
     border-radius: 4px;
     overflow-x: auto;
   }
-</style>
+
+  #summary {
+    margin-top: 20px;
+  }
+
+  #expensesChart {
+    max-width: 100%;
+  }
+  </style>
 </head>
 <body>
 <main>
@@ -173,15 +181,26 @@
   </label>
   <button id="resetAll">Сбросить данные</button>
 </div>
-<div id="result">
-  <h2>Расчёт долгов</h2>
-  <label>
-    <input type="checkbox" id="optimizeToggle" checked>
-    Оптимизировать долги
-  </label>
-  <pre id="debts"></pre>
-</div>
+  <div id="result">
+    <h2>Расчёт долгов</h2>
+    <label>
+      <input type="checkbox" id="optimizeToggle" checked>
+      Оптимизировать долги
+    </label>
+    <pre id="debts"></pre>
+  </div>
+  <div id="summary">
+    <h2>Сводка расходов</h2>
+    <table id="summaryTable">
+      <thead>
+        <tr><th>Участник</th><th>Потратил(а)</th><th>Доля</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <canvas id="expensesChart" height="200"></canvas>
+  </div>
 </main>
+<script src="vendor/chart.umd.min.js"></script>
 <script>
 const TX_KEY = 'transactions';
 const PART_KEY = 'participants';
@@ -204,6 +223,48 @@ function saveParticipants(list) {
   localStorage.setItem(PART_KEY, JSON.stringify(list));
 }
 
+function renderSummary() {
+  const txs = loadTransactions();
+  const names = loadParticipants();
+  const spent = {};
+  const share = {};
+  names.forEach(n => {
+    spent[n] = 0;
+    share[n] = 0;
+  });
+  txs.forEach(tx => {
+    spent[tx.payer] = (spent[tx.payer] || 0) + tx.amount;
+    const portion = tx.amount / tx.participants.length;
+    tx.participants.forEach(p => {
+      share[p] = (share[p] || 0) + portion;
+    });
+  });
+  const tbody = document.querySelector('#summaryTable tbody');
+  tbody.innerHTML = '';
+  names.forEach(n => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${n}</td><td>${spent[n].toFixed(2)}</td><td>${share[n].toFixed(2)}</td>`;
+    tbody.appendChild(tr);
+  });
+  const ctx = document.getElementById('expensesChart');
+  if (window.expensesChart) window.expensesChart.destroy();
+  window.expensesChart = new Chart(ctx, {
+    type: 'pie',
+    data: {
+      labels: names,
+      datasets: [
+        {
+          data: names.map(n => share[n]),
+          backgroundColor: names.map((_, i) => `hsl(${(i * 50) % 360},70%,60%)`),
+        },
+      ],
+    },
+    options: {
+      plugins: { legend: { position: 'bottom' } },
+    },
+  });
+}
+
 function removeParticipant(name) {
   const txs = loadTransactions();
   const used = txs.some(
@@ -217,6 +278,7 @@ function removeParticipant(name) {
   list = list.filter(n => n !== name);
   saveParticipants(list);
   renderParticipants();
+  renderSummary();
 }
 
 function resetAll() {
@@ -226,6 +288,7 @@ function resetAll() {
   renderParticipants();
   renderTransactions();
   calculateDebts();
+  renderSummary();
 }
 
 function renderParticipants() {
@@ -255,6 +318,7 @@ function renderParticipants() {
     const o2 = o1.cloneNode(true);
     partSel.appendChild(o2);
   });
+  renderSummary();
 }
 
 function renderTransactions() {
@@ -267,6 +331,7 @@ function renderTransactions() {
     tr.innerHTML = `<td>${tx.payer}</td><td>${tx.amount.toFixed(2)}</td><td>${tx.participants.join(', ')}</td><td>${btn}</td>`;
     tbody.appendChild(tr);
   });
+  renderSummary();
 }
 
 function calculateOptimizedDebts() {
@@ -369,6 +434,7 @@ function importCsv(file) {
       renderParticipants();
       renderTransactions();
       calculateDebts();
+      renderSummary();
     }
   };
   reader.readAsText(file);
@@ -391,6 +457,7 @@ document.getElementById('addForm').addEventListener('submit', e => {
   e.target.reset();
   renderTransactions();
   calculateDebts();
+  renderSummary();
 });
 
 document
@@ -404,11 +471,12 @@ document
       alert('Такой участник уже есть');
       return;
     }
-    list.push(name);
-    saveParticipants(list);
-    e.target.reset();
-    renderParticipants();
-  });
+  list.push(name);
+  saveParticipants(list);
+  e.target.reset();
+  renderParticipants();
+  renderSummary();
+});
 
 document.querySelector('#txTable tbody').addEventListener('click', e => {
   if (e.target.tagName === 'BUTTON') {
@@ -418,6 +486,7 @@ document.querySelector('#txTable tbody').addEventListener('click', e => {
     saveTransactions(txs);
     renderTransactions();
     calculateDebts();
+    renderSummary();
   }
 });
 
@@ -443,6 +512,7 @@ window.addEventListener('load', () => {
   renderParticipants();
   renderTransactions();
   calculateDebts();
+  renderSummary();
 });
 </script>
 </body>
