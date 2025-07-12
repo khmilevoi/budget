@@ -142,7 +142,8 @@
     margin-top: 20px;
   }
 
-  #expensesChart {
+  #expensesChart,
+  #spentChart {
     max-width: 100%;
   }
   </style>
@@ -198,6 +199,7 @@
       <tbody></tbody>
     </table>
     <canvas id="expensesChart" height="200"></canvas>
+    <canvas id="spentChart" height="200"></canvas>
   </div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
@@ -246,23 +248,45 @@ function renderSummary() {
     tr.innerHTML = `<td>${n}</td><td>${spent[n].toFixed(2)}</td><td>${share[n].toFixed(2)}</td>`;
     tbody.appendChild(tr);
   });
-  const ctx = document.getElementById('expensesChart');
-  if (window.expensesChart) window.expensesChart.destroy();
-  window.expensesChart = new Chart(ctx, {
-    type: 'pie',
-    data: {
-      labels: names,
-      datasets: [
-        {
-          data: names.map(n => share[n]),
-          backgroundColor: names.map((_, i) => `hsl(${(i * 50) % 360},70%,60%)`),
-        },
-      ],
-    },
-    options: {
-      plugins: { legend: { position: 'bottom' } },
-    },
-  });
+  if (window.Chart) {
+    const ctx1 = document.getElementById('expensesChart');
+    if (window.expensesChart) window.expensesChart.destroy();
+    window.expensesChart = new Chart(ctx1, {
+      type: 'pie',
+      data: {
+        labels: names,
+        datasets: [
+          {
+            data: names.map(n => share[n]),
+            backgroundColor: names.map((_, i) => `hsl(${(i * 50) % 360},70%,60%)`),
+          },
+        ],
+      },
+      options: {
+        plugins: { legend: { position: 'bottom' } },
+      },
+    });
+
+    const ctx2 = document.getElementById('spentChart');
+    if (window.spentChart) window.spentChart.destroy();
+    window.spentChart = new Chart(ctx2, {
+      type: 'bar',
+      data: {
+        labels: names,
+        datasets: [
+          {
+            label: 'Потрачено',
+            data: names.map(n => spent[n]),
+            backgroundColor: 'rgba(98,0,238,0.5)',
+          },
+        ],
+      },
+      options: {
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true } },
+      },
+    });
+  }
 }
 
 function removeParticipant(name) {
