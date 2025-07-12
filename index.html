@@ -146,130 +146,234 @@
   #spentChart {
     max-width: 100%;
   }
-  </style>
+</style>
 </head>
 <body>
-<main>
-<h1>Калькулятор долгов</h1>
-<div class="participants">
-  <h2>Участники</h2>
-  <form id="participantForm">
-    <label>Имя: <input id="participantName" required></label>
-    <button type="submit">Добавить</button>
-  </form>
-  <ul id="participantList"></ul>
-</div>
-<form id="addForm">
-  <label>Кто платил:
-    <select id="payerSelect" required></select>
-  </label><br>
-  <label>Сумма: <input id="amount" type="number" step="0.01" required></label><br>
-  <label>Участники:
-    <select id="participantsSelect" multiple size="5" required></select>
-  </label><br>
-  <button type="submit">Добавить</button>
-</form>
-<div class="transactions">
-  <h2>Транзакции</h2>
-  <table id="txTable">
-    <thead><tr><th>Платил</th><th>Сумма</th><th>Участники</th><th></th></tr></thead>
-    <tbody></tbody>
-  </table>
-  <button id="exportCsv">Экспорт CSV</button>
-  <label class="import-label">
-    Импорт CSV
-    <input id="importCsv" type="file" accept=".csv" style="display:none">
-  </label>
-  <button id="resetAll">Сбросить данные</button>
-</div>
-  <div id="result">
-    <h2>Расчёт долгов</h2>
-    <label>
-      <input type="checkbox" id="optimizeToggle" checked>
-      Оптимизировать долги
-    </label>
-    <pre id="debts"></pre>
-  </div>
-  <div id="summary">
-    <h2>Сводка расходов</h2>
-    <table id="summaryTable">
-      <thead>
-        <tr><th>Участник</th><th>Потратил(а)</th><th>Доля</th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    <canvas id="expensesChart" height="200"></canvas>
-    <canvas id="spentChart" height="200"></canvas>
-  </div>
-</main>
+<main id="root"></main>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
-<script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script crossorigin src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
 const TX_KEY = 'transactions';
 const PART_KEY = 'participants';
 
-function loadTransactions() {
-  const data = localStorage.getItem(TX_KEY);
-  return data ? JSON.parse(data) : [];
+function load(key, def) {
+  const data = localStorage.getItem(key);
+  return data ? JSON.parse(data) : def;
 }
 
-function saveTransactions(txs) {
-  localStorage.setItem(TX_KEY, JSON.stringify(txs));
-}
+function App() {
+  const [participants, setParticipants] = useState(() => load(PART_KEY, []));
+  const [transactions, setTransactions] = useState(() => load(TX_KEY, []));
+  const [optimize, setOptimize] = useState(true);
+  const nameRef = useRef();
+  const payerRef = useRef();
+  const amountRef = useRef();
+  const partsRef = useRef();
+  const expChart = useRef();
+  const spentChart = useRef();
+  const expCanvas = useRef();
+  const spentCanvas = useRef();
 
-function loadParticipants() {
-  const data = localStorage.getItem(PART_KEY);
-  return data ? JSON.parse(data) : [];
-}
+  useEffect(() => {
+    localStorage.setItem(PART_KEY, JSON.stringify(participants));
+  }, [participants]);
 
-function saveParticipants(list) {
-  localStorage.setItem(PART_KEY, JSON.stringify(list));
-}
+  useEffect(() => {
+    localStorage.setItem(TX_KEY, JSON.stringify(transactions));
+  }, [transactions]);
 
-function renderSummary() {
-  const txs = loadTransactions();
-  const names = loadParticipants();
-  const spent = {};
-  const share = {};
-  names.forEach(n => {
-    spent[n] = 0;
-    share[n] = 0;
-  });
-  txs.forEach(tx => {
-    spent[tx.payer] = (spent[tx.payer] || 0) + tx.amount;
-    const portion = tx.amount / tx.participants.length;
-    tx.participants.forEach(p => {
-      share[p] = (share[p] || 0) + portion;
+  useEffect(() => {
+    renderCharts();
+  }, [participants, transactions]);
+
+  function addParticipant(e) {
+    e.preventDefault();
+    const name = nameRef.current.value.trim();
+    if (!name) return;
+    if (participants.includes(name)) {
+      alert('Такой участник уже есть');
+      return;
+    }
+    setParticipants([...participants, name]);
+    nameRef.current.value = '';
+  }
+
+  function removeParticipant(name) {
+    const used = transactions.some(
+      tx => tx.payer === name || tx.participants.includes(name)
+    );
+    if (used) {
+      alert('Нельзя удалить участника с транзакциями');
+      return;
+    }
+    setParticipants(participants.filter(n => n !== name));
+  }
+
+  function addTransaction(e) {
+    e.preventDefault();
+    const payer = payerRef.current.value;
+    const amount = parseFloat(amountRef.current.value);
+    const parts = Array.from(partsRef.current.selectedOptions).map(o => o.value);
+    if (!payer || parts.length === 0 || isNaN(amount) || amount <= 0) {
+      alert('Заполните все поля');
+      return;
+    }
+    setTransactions([...transactions, { payer, amount, participants: parts }]);
+    amountRef.current.value = '';
+    partsRef.current.selectedIndex = -1;
+  }
+
+  function deleteTransaction(idx) {
+    const txs = [...transactions];
+    txs.splice(idx, 1);
+    setTransactions(txs);
+  }
+
+  function resetAll() {
+    if (!confirm('Удалить все данные?')) return;
+    localStorage.removeItem(TX_KEY);
+    localStorage.removeItem(PART_KEY);
+    setParticipants([]);
+    setTransactions([]);
+  }
+
+  function exportCsv() {
+    let csv = 'payer,amount,participants\n';
+    transactions.forEach(tx => {
+      const parts = tx.participants.join(';');
+      csv += `${tx.payer},${tx.amount},${parts}\n`;
     });
-  });
-  const tbody = document.querySelector('#summaryTable tbody');
-  tbody.innerHTML = '';
-  names.forEach(n => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${n}</td><td>${spent[n].toFixed(2)}</td><td>${share[n].toFixed(2)}</td>`;
-    tbody.appendChild(tr);
-  });
-  if (window.Chart) {
-    const ctx1 = document.getElementById('expensesChart');
-    if (window.expensesChart) window.expensesChart.destroy();
-    window.expensesChart = new Chart(ctx1, {
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'transactions.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function importCsv(file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const lines = e.target.result.trim().split(/\r?\n/);
+      const newTxs = [];
+      for (let i = 1; i < lines.length; i++) {
+        const [payer, amountStr, participantsStr] = lines[i].split(',');
+        const amount = parseFloat(amountStr);
+        const parts = participantsStr
+          ? participantsStr.split(';').map(p => p.trim()).filter(Boolean)
+          : [];
+        if (payer && !isNaN(amount) && parts.length) {
+          newTxs.push({ payer: payer.trim(), amount, participants: parts });
+        }
+      }
+      if (newTxs.length) {
+        const allTxs = transactions.concat(newTxs);
+        setTransactions(allTxs);
+        const partSet = new Set(participants);
+        allTxs.forEach(tx => {
+          partSet.add(tx.payer);
+          tx.participants.forEach(p => partSet.add(p));
+        });
+        setParticipants(Array.from(partSet));
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function calculateDebts() {
+    if (optimize) return calcOptimized();
+    return calcDirect();
+  }
+
+  function calcOptimized() {
+    const balances = {};
+    transactions.forEach(tx => {
+      const share = tx.amount / tx.participants.length;
+      tx.participants.forEach(p => {
+        balances[p] = (balances[p] || 0) - share;
+      });
+      balances[tx.payer] = (balances[tx.payer] || 0) + tx.amount;
+    });
+    const debtors = Object.keys(balances)
+      .filter(n => balances[n] < -0.01)
+      .map(n => ({ name: n, amount: -balances[n] }));
+    const creditors = Object.keys(balances)
+      .filter(n => balances[n] > 0.01)
+      .map(n => ({ name: n, amount: balances[n] }));
+    const settlements = [];
+    let i = 0,
+      j = 0;
+    while (i < debtors.length && j < creditors.length) {
+      const d = debtors[i];
+      const c = creditors[j];
+      const pay = Math.min(d.amount, c.amount);
+      settlements.push(`${d.name} должен(а) ${c.name} ${pay.toFixed(2)}`);
+      d.amount -= pay;
+      c.amount -= pay;
+      if (d.amount < 0.01) i++;
+      if (c.amount < 0.01) j++;
+    }
+    return settlements;
+  }
+
+  function calcDirect() {
+    const pairs = {};
+    transactions.forEach(tx => {
+      const share = tx.amount / tx.participants.length;
+      tx.participants.forEach(p => {
+        if (p === tx.payer) return;
+        const key = `${p}->${tx.payer}`;
+        pairs[key] = (pairs[key] || 0) + share;
+      });
+    });
+    return Object.keys(pairs).map(k => {
+      const [debtor, creditor] = k.split('->');
+      return `${debtor} должен(а) ${creditor} ${pairs[k].toFixed(2)}`;
+    });
+  }
+
+  function summaryData() {
+    const spent = {};
+    const share = {};
+    participants.forEach(n => {
+      spent[n] = 0;
+      share[n] = 0;
+    });
+    transactions.forEach(tx => {
+      spent[tx.payer] = (spent[tx.payer] || 0) + tx.amount;
+      const portion = tx.amount / tx.participants.length;
+      tx.participants.forEach(p => {
+        share[p] = (share[p] || 0) + portion;
+      });
+    });
+    return { spent, share };
+  }
+
+  function renderCharts() {
+    if (!window.Chart || !participants.length) return;
+    const { spent, share } = summaryData();
+    const names = participants;
+    if (expChart.current) expChart.current.destroy();
+    expChart.current = new Chart(expCanvas.current, {
       type: 'pie',
       data: {
         labels: names,
         datasets: [
           {
             data: names.map(n => share[n]),
-            backgroundColor: names.map((_, i) => `hsl(${(i * 50) % 360},70%,60%)`),
-          },
-        ],
+            backgroundColor: names.map((_, i) => `hsl(${(i * 50) % 360},70%,60%)`)
+          }
+        ]
       },
-      options: {
-        plugins: { legend: { position: 'bottom' } },
-      },
+      options: { plugins: { legend: { position: 'bottom' } } }
     });
-
-    const ctx2 = document.getElementById('spentChart');
-    if (window.spentChart) window.spentChart.destroy();
-    window.spentChart = new Chart(ctx2, {
+    if (spentChart.current) spentChart.current.destroy();
+    spentChart.current = new Chart(spentCanvas.current, {
       type: 'bar',
       data: {
         labels: names,
@@ -277,267 +381,151 @@ function renderSummary() {
           {
             label: 'Потрачено',
             data: names.map(n => spent[n]),
-            backgroundColor: 'rgba(98,0,238,0.5)',
-          },
-        ],
+            backgroundColor: 'rgba(98,0,238,0.5)'
+          }
+        ]
       },
       options: {
         plugins: { legend: { display: false } },
-        scales: { y: { beginAtZero: true } },
-      },
-    });
-  }
-}
-
-function removeParticipant(name) {
-  const txs = loadTransactions();
-  const used = txs.some(
-    tx => tx.payer === name || tx.participants.includes(name)
-  );
-  if (used) {
-    alert('Нельзя удалить участника с транзакциями');
-    return;
-  }
-  let list = loadParticipants();
-  list = list.filter(n => n !== name);
-  saveParticipants(list);
-  renderParticipants();
-  renderSummary();
-}
-
-function resetAll() {
-  if (!confirm('Удалить все данные?')) return;
-  localStorage.removeItem(TX_KEY);
-  localStorage.removeItem(PART_KEY);
-  renderParticipants();
-  renderTransactions();
-  calculateDebts();
-  renderSummary();
-}
-
-function renderParticipants() {
-  const names = loadParticipants();
-  const listEl = document.getElementById('participantList');
-  const payerSel = document.getElementById('payerSelect');
-  const partSel = document.getElementById('participantsSelect');
-  listEl.innerHTML = '';
-  payerSel.innerHTML = '';
-  partSel.innerHTML = '';
-  names.forEach(name => {
-    const li = document.createElement('li');
-    const span = document.createElement('span');
-    span.textContent = name;
-    li.appendChild(span);
-    const btn = document.createElement('button');
-    btn.textContent = 'X';
-    btn.className = 'del-part';
-    btn.dataset.name = name;
-    btn.setAttribute('aria-label', `Удалить ${name}`);
-    li.appendChild(btn);
-    listEl.appendChild(li);
-    const o1 = document.createElement('option');
-    o1.value = name;
-    o1.textContent = name;
-    payerSel.appendChild(o1);
-    const o2 = o1.cloneNode(true);
-    partSel.appendChild(o2);
-  });
-  renderSummary();
-}
-
-function renderTransactions() {
-  const tbody = document.querySelector('#txTable tbody');
-  tbody.innerHTML = '';
-  const txs = loadTransactions();
-  txs.forEach((tx, idx) => {
-    const tr = document.createElement('tr');
-    const btn = `<button data-idx="${idx}" aria-label="Удалить транзакцию">X</button>`;
-    tr.innerHTML = `<td>${tx.payer}</td><td>${tx.amount.toFixed(2)}</td><td>${tx.participants.join(', ')}</td><td>${btn}</td>`;
-    tbody.appendChild(tr);
-  });
-  renderSummary();
-}
-
-function calculateOptimizedDebts() {
-  const txs = loadTransactions();
-  const balances = {};
-  txs.forEach(tx => {
-    const share = tx.amount / tx.participants.length;
-    tx.participants.forEach(p => {
-      balances[p] = (balances[p] || 0) - share;
-    });
-    balances[tx.payer] = (balances[tx.payer] || 0) + tx.amount;
-  });
-  const debtors = Object.keys(balances)
-    .filter(n => balances[n] < -0.01)
-    .map(n => ({ name: n, amount: -balances[n] }));
-  const creditors = Object.keys(balances)
-    .filter(n => balances[n] > 0.01)
-    .map(n => ({ name: n, amount: balances[n] }));
-  const settlements = [];
-  let i = 0,
-    j = 0;
-  while (i < debtors.length && j < creditors.length) {
-    const d = debtors[i];
-    const c = creditors[j];
-    const pay = Math.min(d.amount, c.amount);
-    settlements.push(`${d.name} должен(а) ${c.name} ${pay.toFixed(2)}`);
-    d.amount -= pay;
-    c.amount -= pay;
-    if (d.amount < 0.01) i++;
-    if (c.amount < 0.01) j++;
-  }
-  document.getElementById('debts').textContent = settlements.join('\n');
-}
-
-function calculateDirectDebts() {
-  const txs = loadTransactions();
-  const pairs = {};
-  txs.forEach(tx => {
-    const share = tx.amount / tx.participants.length;
-    tx.participants.forEach(p => {
-      if (p === tx.payer) return;
-      const key = `${p}->${tx.payer}`;
-      pairs[key] = (pairs[key] || 0) + share;
-    });
-  });
-  const lines = Object.keys(pairs).map(k => {
-    const [debtor, creditor] = k.split('->');
-    return `${debtor} должен(а) ${creditor} ${pairs[k].toFixed(2)}`;
-  });
-  document.getElementById('debts').textContent = lines.join('\n');
-}
-
-function calculateDebts() {
-  const optimized = document.getElementById('optimizeToggle').checked;
-  if (optimized) {
-    calculateOptimizedDebts();
-  } else {
-    calculateDirectDebts();
-  }
-}
-
-function exportCsv() {
-  const txs = loadTransactions();
-  let csv = 'payer,amount,participants\n';
-  txs.forEach(tx => {
-    const parts = tx.participants.join(';');
-    csv += `${tx.payer},${tx.amount},${parts}\n`;
-  });
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'transactions.csv';
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function importCsv(file) {
-  const reader = new FileReader();
-  reader.onload = e => {
-    const lines = e.target.result.trim().split(/\r?\n/);
-    const newTxs = [];
-    for (let i = 1; i < lines.length; i++) {
-      const [payer, amountStr, participantsStr] = lines[i].split(',');
-      const amount = parseFloat(amountStr);
-      const parts = participantsStr ? participantsStr.split(';').map(p => p.trim()).filter(Boolean) : [];
-      if (payer && !isNaN(amount) && parts.length) {
-        newTxs.push({ payer: payer.trim(), amount, participants: parts });
+        scales: { y: { beginAtZero: true } }
       }
-    }
-    if (newTxs.length) {
-      const allTxs = loadTransactions().concat(newTxs);
-      saveTransactions(allTxs);
-      const partSet = new Set(loadParticipants());
-      allTxs.forEach(tx => {
-        partSet.add(tx.payer);
-        tx.participants.forEach(p => partSet.add(p));
-      });
-      saveParticipants(Array.from(partSet));
-      renderParticipants();
-      renderTransactions();
-      calculateDebts();
-      renderSummary();
-    }
-  };
-  reader.readAsText(file);
+    });
+  }
+
+  const debts = calculateDebts();
+  const { spent, share } = summaryData();
+
+  return (
+    <>
+      <h1>Калькулятор долгов</h1>
+      <div className="participants">
+        <h2>Участники</h2>
+        <form onSubmit={addParticipant} id="participantForm">
+          <label>
+            Имя: <input ref={nameRef} required />
+          </label>
+          <button type="submit">Добавить</button>
+        </form>
+        <ul id="participantList">
+          {participants.map(name => (
+            <li key={name}>
+              <span>{name}</span>
+              <button
+                className="del-part"
+                aria-label={`Удалить ${name}`}
+                onClick={() => removeParticipant(name)}
+              >
+                X
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <form onSubmit={addTransaction} id="addForm">
+        <label>
+          Кто платил:
+          <select ref={payerRef} required>
+            <option value="" disabled selected hidden></option>
+            {participants.map(name => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+        </label>
+        <br />
+        <label>
+          Сумма: <input ref={amountRef} type="number" step="0.01" required />
+        </label>
+        <br />
+        <label>
+          Участники:
+          <select ref={partsRef} multiple size="5" required>
+            {participants.map(name => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+        </label>
+        <br />
+        <button type="submit">Добавить</button>
+      </form>
+
+      <div className="transactions">
+        <h2>Транзакции</h2>
+        <table id="txTable">
+          <thead>
+            <tr>
+              <th>Платил</th>
+              <th>Сумма</th>
+              <th>Участники</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {transactions.map((tx, idx) => (
+              <tr key={idx}>
+                <td>{tx.payer}</td>
+                <td>{tx.amount.toFixed(2)}</td>
+                <td>{tx.participants.join(', ')}</td>
+                <td>
+                  <button aria-label="Удалить транзакцию" onClick={() => deleteTransaction(idx)}>X</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <button onClick={exportCsv}>Экспорт CSV</button>
+        <label className="import-label">
+          Импорт CSV
+          <input type="file" accept=".csv" onChange={e => {
+            const file = e.target.files[0];
+            if (file) importCsv(file);
+            e.target.value = '';
+          }} />
+        </label>
+        <button onClick={resetAll}>Сбросить данные</button>
+      </div>
+
+      <div id="result">
+        <h2>Расчёт долгов</h2>
+        <label>
+          <input
+            type="checkbox"
+            checked={optimize}
+            onChange={e => setOptimize(e.target.checked)}
+          />
+          Оптимизировать долги
+        </label>
+        <pre id="debts">{debts.join('\n')}</pre>
+      </div>
+
+      <div id="summary">
+        <h2>Сводка расходов</h2>
+        <table id="summaryTable">
+          <thead>
+            <tr>
+              <th>Участник</th>
+              <th>Потратил(а)</th>
+              <th>Доля</th>
+            </tr>
+          </thead>
+          <tbody>
+            {participants.map(n => (
+              <tr key={n}>
+                <td>{n}</td>
+                <td>{(spent[n] || 0).toFixed(2)}</td>
+                <td>{(share[n] || 0).toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <canvas ref={expCanvas} id="expensesChart" height="200"></canvas>
+        <canvas ref={spentCanvas} id="spentChart" height="200"></canvas>
+      </div>
+    </>
+  );
 }
 
-document.getElementById('addForm').addEventListener('submit', e => {
-  e.preventDefault();
-  const payer = document.getElementById('payerSelect').value;
-  const amount = parseFloat(document.getElementById('amount').value);
-  const participants = Array.from(
-    document.getElementById('participantsSelect').selectedOptions
-  ).map(o => o.value);
-  if (!payer || participants.length === 0 || isNaN(amount) || amount <= 0) {
-    alert('Заполните все поля');
-    return;
-  }
-  const txs = loadTransactions();
-  txs.push({ payer, amount, participants });
-  saveTransactions(txs);
-  e.target.reset();
-  renderTransactions();
-  calculateDebts();
-  renderSummary();
-});
-
-document
-  .getElementById('participantForm')
-  .addEventListener('submit', e => {
-    e.preventDefault();
-    const name = document.getElementById('participantName').value.trim();
-    if (!name) return;
-    const list = loadParticipants();
-    if (list.includes(name)) {
-      alert('Такой участник уже есть');
-      return;
-    }
-  list.push(name);
-  saveParticipants(list);
-  e.target.reset();
-  renderParticipants();
-  renderSummary();
-});
-
-document.querySelector('#txTable tbody').addEventListener('click', e => {
-  if (e.target.tagName === 'BUTTON') {
-    const idx = parseInt(e.target.dataset.idx, 10);
-    const txs = loadTransactions();
-    txs.splice(idx, 1);
-    saveTransactions(txs);
-    renderTransactions();
-    calculateDebts();
-    renderSummary();
-  }
-});
-
-document.getElementById('participantList').addEventListener('click', e => {
-  if (e.target.classList.contains('del-part')) {
-    const name = e.target.dataset.name;
-    if (name) removeParticipant(name);
-  }
-});
-
-document.getElementById('exportCsv').addEventListener('click', exportCsv);
-document.getElementById('importCsv').addEventListener('change', e => {
-  const file = e.target.files[0];
-  if (file) importCsv(file);
-  e.target.value = '';
-});
-document.getElementById('resetAll').addEventListener('click', resetAll);
-document
-  .getElementById('optimizeToggle')
-  .addEventListener('change', calculateDebts);
-
-window.addEventListener('load', () => {
-  renderParticipants();
-  renderTransactions();
-  calculateDebts();
-  renderSummary();
-});
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
 </body>
 </html>
