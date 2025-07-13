@@ -16,3 +16,7 @@
 ## Импорт и экспорт CSV
 
 В разделе "Транзакции" доступны кнопки для экспорта текущих данных в файл `transactions.csv` и для импорта данных из аналогичного CSV файла. В файле используются колонки `payer`, `amount` и `participants` (участники перечислены через `;`).
+
+## Third-party licenses
+
+This project uses React, ReactDOM, Babel and Chart.js via CDNs. Their MIT licenses are included in the `LICENSES/` directory.
